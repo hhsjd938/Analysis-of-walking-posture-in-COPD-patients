@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gait Analysis Result</title>
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Analysis Result</h1>
+        <p><strong>Predicted Class:</strong> {{ result }}</p>
+        <h2>Statistical Features:</h2>
+        <ul>
+            {% for key, value in features.items() %}
+                <li><strong>{{ key }}:</strong> {{ value }}</li>
+            {% endfor %}
+        </ul>
+        <h2>Row-wise Features:</h2>
+        <ul>
+            {% for row in row_features %}
+                <li>{{ row }}</li>
+            {% endfor %}
+        </ul>
+        <a href="/">Upload Another File</a>
+    </div>
+</body>
+</html>

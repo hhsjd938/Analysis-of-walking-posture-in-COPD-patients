@@ -1,88 +1,51 @@
-from flask import Flask, request, render_template, send_from_directory, jsonify
-import os
+from pathlib import Path
+
 import pandas as pd
-import torch
-from werkzeug.utils import secure_filename
-from utils.data_processor import extract_features_from_rows 
-from models.analyzer import SeverityClassifier
+from flask import Flask, jsonify, render_template, request
 
-# 配置
-UPLOAD_FOLDER = './uploads'
-ALLOWED_EXTENSIONS = {'csv'}
+from models.predict import predict
+from utils.data_processor import analyze, select_track
+
+
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config.update(MAX_CONTENT_LENGTH=10 * 1024 * 1024,
+                  MODEL_PATH=str(Path(__file__).parent / 'models' / 'model.pth'))
 
-# 確保上傳文件夾存在
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
 
-# 確保所需目錄存在
-required_directories = ['./uploads', './static/js', './static/css', './templates', './models', './utils', './results']
-for directory in required_directories:
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-@app.route('/')
+@app.get('/')
 def index():
     return render_template('index.html')
 
-@app.route('/upload', methods=['POST'])
+
+@app.post('/upload')
+@app.post('/api/upload')
 def upload_file():
-    if 'file' not in request.files:
-        return "No file part", 400
-    file = request.files['file']
-    if file.filename == '':
-        return "No selected file", 400
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
+    file = request.files.get('file')
+    try:
+        if file is None or not file.filename or not file.filename.lower().endswith('.csv'):
+            raise ValueError('請選擇 CSV 檔案。')
+        frames, summary, diagnostics = analyze(select_track(pd.read_csv(file.stream), request.form.get('track_id')))
+    except (ValueError, UnicodeError, pd.errors.ParserError) as error:
+        if request.path.startswith('/api/'):
+            return jsonify(error=str(error)), 400
+        return render_template('index.html', error=str(error)), 400
+    try:
+        prediction = predict(summary, app.config['MODEL_PATH'])
+    except Exception:
+        app.logger.exception('Model loading or prediction failed')
+        prediction = {'status': 'unavailable', 'message': '模型無法載入，請檢查訓練產物；以下顯示步態特徵。'}
+    payload = {'features': summary, 'diagnostics': diagnostics, 'frames': len(frames), 'prediction': prediction}
+    if request.path.startswith('/api/'):
+        return jsonify(payload)
+    return render_template('result.html', **payload)
 
-        # 處理文件並運行分析
-        df = pd.read_csv(file_path)
-        features = extract_features_from_rows(df, filename, label=1)  # 臨時標籤用於演示
-        statistical_features = features["statistical_features"]
 
-        # 運行模型預測
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = SeverityClassifier(input_size=len(statistical_features), num_classes=4).to(device)
-        model.load_state_dict(torch.load("models/model.pth", map_location=device))
-        model.eval()
-        
-        # 準備模型數據
-        feature_values = list(statistical_features.values())[:-2]  # 排除 'label' 和 'file_name'
-        feature_tensor = torch.tensor(feature_values, dtype=torch.float32).to(device)
-        
-        with torch.no_grad():
-            output = model(feature_tensor)
-            _, predicted_class = torch.max(output.data, 0)
-        
-        # 返回結果給用戶
-        return render_template('result.html', result=int(predicted_class), features=statistical_features)
-    else:
-        return "File type not allowed", 400
+@app.errorhandler(413)
+def too_large(error):
+    if request.path.startswith('/api/'):
+        return jsonify(error='檔案大小上限為 10 MB。'), 413
+    return render_template('index.html', error='檔案大小上限為 10 MB。'), 413
 
-@app.route('/results/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-@app.route('/api/upload', methods=['POST'])
-def api_upload_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        return jsonify({"message": "File uploaded successfully.", "filename": filename}), 200
-    else:
-        return jsonify({"error": "File type not allowed"}), 400
-
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', debug=False)

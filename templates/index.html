@@ -1,19 +1,6 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>步態分析上傳</title>
-    <link rel="stylesheet" type="text/css" href="/static/css/style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>上傳步態CSV文件進行分析</h1>
-        <form action="/upload" method="post" enctype="multipart/form-data">
-            <input type="file" name="file" accept=".csv" required>
-            <button type="submit">上傳文件</button>
-        </form>
-    </div>
-    <script src="/static/js/main.js"></script>
-</body>
-</html>
+<html lang="zh-Hant"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>COPD 步態專題</title><link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"></head>
+<body><main class="container"><p>畢業專題 · Gait analysis</p><h1>COPD 患者行走姿態分析</h1><p>上傳單一對象的姿態座標，檢視關節角度、踝部水平間距與四分位數。</p><p>請使用 COCO 17 點的 x、y、confidence 順序。每份 CSV 只放同一段記錄、同一位追蹤對象；上傳內容不保存。</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form action="/upload" method="post" enctype="multipart/form-data"><label for="file">姿態 CSV（最多 10 MB）</label><input id="file" type="file" name="file" accept=".csv" required><label for="track_id">追蹤對象 ID（多個對象時填寫）</label><input id="track_id" name="track_id" type="text"><button type="submit">分析步態特徵</button></form>
+<p>此頁為研究展示；分類需另備與目前特徵格式一致的訓練模型。類別意義由訓練資料定義。</p></main></body></html>

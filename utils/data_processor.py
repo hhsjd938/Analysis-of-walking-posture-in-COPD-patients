@@ -1,103 +1,112 @@
-import pandas as pd
+import json
+
 import numpy as np
-import math
+import pandas as pd
 
-def calculate_head_torso_angle(x_head, y_head, x_shoulder, y_shoulder):
-    delta_x = x_head - x_shoulder
-    delta_y = y_head - y_shoulder
-    angle_radians = math.atan2(delta_y, delta_x)
-    return math.degrees(angle_radians)
 
-def calculate_arm_angle(x_shoulder, y_shoulder, x_elbow, y_elbow, x_wrist, y_wrist):
-    a_x = x_elbow - x_shoulder
-    a_y = y_elbow - y_shoulder
-    b_x = x_wrist - x_elbow
-    b_y = y_wrist - y_elbow
-    dot_product = a_x * b_x + a_y * b_y
-    magnitude_a = math.hypot(a_x, a_y)
-    magnitude_b = math.hypot(b_x, b_y)
+SIGNALS = (
+    'head_torso_angle', 'left_elbow_angle', 'right_elbow_angle',
+    'left_hip_angle', 'right_hip_angle', 'trunk_tilt',
+    'ankle_horizontal_separation', 'shoulder_hip_distance',
+    'head_hip_distance', 'torso_midpoint_x', 'torso_midpoint_y',
+)
+FEATURE_COLUMNS = tuple(f'{stat}_{name}' for name in SIGNALS for stat in ('mean', 'std'))
+SCHEMA = 'coco17_xy_confidence_v1'
 
-    if magnitude_a == 0 or magnitude_b == 0:
-        return 0
 
-    cos_angle = dot_product / (magnitude_a * magnitude_b)
-    cos_angle = max(-1, min(1, cos_angle))
-    return math.degrees(math.acos(cos_angle))
+def select_track(df, track_id=None):
+    if track_id is None or str(track_id).strip() == '':
+        return df
+    if 'id' not in df:
+        raise ValueError('指定追蹤 ID 時，CSV 必須有 id 欄位。')
+    selected = df.loc[df['id'].astype(str) == str(track_id).strip()].copy()
+    if selected.empty:
+        raise ValueError('CSV 中找不到指定的追蹤 ID。')
+    return selected
 
-def calculate_hip_angle(x_shoulder, y_shoulder, x_hip, y_hip, x_knee, y_knee):
-    a_x = x_shoulder - x_hip
-    a_y = y_shoulder - y_hip
-    b_x = x_knee - x_hip
-    b_y = y_knee - y_hip
-    dot_product = a_x * b_x + a_y * b_y
-    magnitude_a = math.hypot(a_x, a_y)
-    magnitude_b = math.hypot(b_x, b_y)
 
-    if magnitude_a == 0 or magnitude_b == 0:
-        return 0
+def parse_keypoints(df):
+    if df.empty:
+        raise ValueError('CSV 沒有資料列。')
+    if len(df) > 100000:
+        raise ValueError('每次最多處理 100000 列。')
+    if 'id' in df and df['id'].nunique(dropna=False) != 1:
+        raise ValueError('一份 CSV 必須只包含同一位追蹤對象。')
+    columns = [f'kpt_{i}' for i in range(1, 52)]
+    if all(name in df for name in columns):
+        values = df[columns].apply(pd.to_numeric, errors='raise').to_numpy(dtype=float)
+    elif 'kpts' in df:
+        rows = []
+        for value in df['kpts']:
+            text = str(value).strip().strip('"')
+            try:
+                row = np.asarray(json.loads(text if text.startswith('[') else '[' + text + ']'), dtype=float).ravel()
+            except (ValueError, TypeError) as error:
+                raise ValueError('kpts 必須包含 17 組 x、y、confidence 數值。') from error
+            if row.size != 51:
+                raise ValueError('每列 kpts 必須恰好包含 51 個數值。')
+            rows.append(row)
+        values = np.asarray(rows)
+    else:
+        raise ValueError('缺少 kpts 欄位或完整的 kpt_1 到 kpt_51。')
+    if not np.isfinite(values).all():
+        raise ValueError('座標與信心分數必須是有限數值。')
+    points = values.reshape(-1, 17, 3)
+    if ((points[:, :, 2] < 0) | (points[:, :, 2] > 1)).any():
+        raise ValueError('confidence 必須介於 0 與 1。')
+    return points
 
-    cos_angle = dot_product / (magnitude_a * magnitude_b)
-    cos_angle = max(-1, min(1, cos_angle))
-    return math.degrees(math.acos(cos_angle))
 
-def extract_features_from_rows(df, file_name, label):
-    head_torso_angles = []
-    arm_angles = []
-    hip_angles = []
-    row_features = []
+def joint_angle(a, b, c):
+    u, v = a - b, c - b
+    norm = np.linalg.norm(u, axis=1) * np.linalg.norm(v, axis=1)
+    cosine = np.divide(np.sum(u * v, axis=1), norm, out=np.full(len(norm), np.nan), where=norm > 0)
+    return np.degrees(np.arccos(np.clip(cosine, -1, 1)))
 
-    for i in range(len(df)):
-        try:
-            # 提取數據點
-            x_head = (float(df['kpt_1'].iloc[i]) + float(df['kpt_2'].iloc[i])) / 2
-            y_head = (float(df['kpt_3'].iloc[i]) + float(df['kpt_4'].iloc[i])) / 2
-            x_shoulder = (float(df['kpt_5'].iloc[i]) + float(df['kpt_6'].iloc[i])) / 2
-            y_shoulder = (float(df['kpt_7'].iloc[i]) + float(df['kpt_8'].iloc[i])) / 2
-            x_elbow = float(df['kpt_9'].iloc[i])
-            y_elbow = float(df['kpt_10'].iloc[i])
-            x_wrist = float(df['kpt_11'].iloc[i])
-            y_wrist = float(df['kpt_12'].iloc[i])
-            x_hip_left = float(df['kpt_13'].iloc[i])
-            y_hip_left = float(df['kpt_14'].iloc[i])
-            x_hip_right = float(df['kpt_15'].iloc[i])
-            y_hip_right = float(df['kpt_16'].iloc[i])
-            x_knee = float(df['kpt_17'].iloc[i])
-            y_knee = float(df['kpt_18'].iloc[i])
 
-            # 計算特徵
-            head_torso_angle = calculate_head_torso_angle(x_head, y_head, x_shoulder, y_shoulder)
-            arm_angle = calculate_arm_angle(x_shoulder, y_shoulder, x_elbow, y_elbow, x_wrist, y_wrist)
-            hip_angle = calculate_hip_angle(
-                x_shoulder, y_shoulder,
-                (x_hip_left + x_hip_right) / 2, (y_hip_left + y_hip_right) / 2,
-                x_knee, y_knee
-            )
+def analyze(df, min_confidence=0.25):
+    if not 0 <= min_confidence <= 1:
+        raise ValueError('min_confidence 必須介於 0 與 1。')
+    points = parse_keypoints(df)
+    xy = points[:, :, :2].copy()
+    xy[points[:, :, 2] < min_confidence] = np.nan
+    nose = xy[:, 0]
+    shoulders = (xy[:, 5] + xy[:, 6]) / 2
+    hips = (xy[:, 11] + xy[:, 12]) / 2
+    midpoint = (shoulders + hips) / 2
+    trunk = shoulders - hips
+    tilt = np.degrees(np.arctan2(trunk[:, 0], -trunk[:, 1]))
+    tilt[np.linalg.norm(trunk, axis=1) == 0] = np.nan
+    frames = pd.DataFrame({
+        'head_torso_angle': joint_angle(nose, shoulders, hips),
+        'left_elbow_angle': joint_angle(xy[:, 5], xy[:, 7], xy[:, 9]),
+        'right_elbow_angle': joint_angle(xy[:, 6], xy[:, 8], xy[:, 10]),
+        'left_hip_angle': joint_angle(xy[:, 5], xy[:, 11], xy[:, 13]),
+        'right_hip_angle': joint_angle(xy[:, 6], xy[:, 12], xy[:, 14]),
+        'trunk_tilt': tilt,
+        'ankle_horizontal_separation': np.abs(xy[:, 15, 0] - xy[:, 16, 0]),
+        'shoulder_hip_distance': np.linalg.norm(shoulders - hips, axis=1),
+        'head_hip_distance': np.linalg.norm(nose - hips, axis=1),
+        'torso_midpoint_x': midpoint[:, 0],
+        'torso_midpoint_y': midpoint[:, 1],
+    })
+    if frames.notna().sum().eq(0).any():
+        raise ValueError('有特徵完全沒有有效關鍵點；請檢查座標配置及信心分數。')
+    summary, diagnostics = {}, {}
+    for name in SIGNALS:
+        series = frames[name].dropna()
+        q1, q2, q3 = series.quantile([0.25, 0.5, 0.75])
+        iqr = q3 - q1
+        summary[f'mean_{name}'] = float(series.mean())
+        summary[f'std_{name}'] = float(series.std(ddof=0))
+        outliers = (series < q1 - 1.5 * iqr) | (series > q3 + 1.5 * iqr)
+        diagnostics[name] = {'valid_frames': int(len(series)), 'q1': float(q1), 'median': float(q2),
+                             'q3': float(q3), 'iqr': float(iqr), 'range': float(series.max() - series.min()),
+                             'iqr_outliers': int(outliers.sum())}
+    return frames, summary, diagnostics
 
-            row_features.append({
-                'head_torso_angle': head_torso_angle,
-                'arm_angle': arm_angle,
-                'hip_angle': hip_angle,
-                'label': label,
-                'file_name': file_name
-            })
 
-            head_torso_angles.append(head_torso_angle)
-            arm_angles.append(arm_angle)
-            hip_angles.append(hip_angle)
-
-        except Exception as e:
-            print(f"特徵提取錯誤於文件 {file_name}, 行 {i}: {e}")
-            continue
-
-    statistical_features = {
-        'mean_head_torso_angle': np.mean(head_torso_angles),
-        'std_head_torso_angle': np.std(head_torso_angles),
-        'mean_arm_angle': np.mean(arm_angles),
-        'std_arm_angle': np.std(arm_angles),
-        'mean_hip_angle': np.mean(hip_angles),
-        'std_hip_angle': np.std(hip_angles),
-        'label': label,
-        'file_name': file_name
-    }
-
-    return {'row_features': row_features, 'statistical_features': statistical_features}
+def extract_features_from_rows(df, file_name=None, label=None):
+    frames, summary, diagnostics = analyze(df)
+    return {'row_features': frames.astype(object).where(frames.notna(), None).to_dict('records'),
+            'statistical_features': summary, 'diagnostics': diagnostics}

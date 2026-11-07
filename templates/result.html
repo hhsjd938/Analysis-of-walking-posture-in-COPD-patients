@@ -1,28 +1,6 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gait Analysis Result</title>
-    <link rel="stylesheet" type="text/css" href="/static/css/style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>Analysis Result</h1>
-        <p><strong>Predicted Class:</strong> {{ result }}</p>
-        <h2>Statistical Features:</h2>
-        <ul>
-            {% for key, value in features.items() %}
-                <li><strong>{{ key }}:</strong> {{ value }}</li>
-            {% endfor %}
-        </ul>
-        <h2>Row-wise Features:</h2>
-        <ul>
-            {% for row in row_features %}
-                <li>{{ row }}</li>
-            {% endfor %}
-        </ul>
-        <a href="/">Upload Another File</a>
-    </div>
-</body>
-</html>
+<html lang="zh-Hant"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>步態分析結果</title><link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"></head>
+<body><main class="container"><a href="/">← 分析另一份記錄</a><h1>步態特徵分析</h1><p>共 {{ frames }} 列。角度單位為度，距離使用原始影像座標單位。</p><p role="status">{{ prediction.message }}</p>{% if prediction.label is defined and prediction.label is not none %}<p>預測類別：{{ prediction.label }}</p>{% endif %}
+{% if prediction.probabilities %}<ul>{% for label, probability in prediction.probabilities.items() %}<li>{{ label }}：{{ '%.3f'|format(probability) }}</li>{% endfor %}</ul>{% endif %}
+<h2>記錄摘要</h2><table><thead><tr><th>特徵</th><th>數值</th></tr></thead><tbody>{% for name, value in features.items() %}<tr><td>{{ name }}</td><td>{{ '%.3f'|format(value) }}</td></tr>{% endfor %}</tbody></table>
+<h2>四分位數與離群檢查</h2><div class="scroll"><table><thead><tr><th>訊號</th><th>有效列</th><th>Q1</th><th>Q2</th><th>Q3</th><th>IQR 離群列</th></tr></thead><tbody>{% for name, item in diagnostics.items() %}<tr><td>{{ name }}</td><td>{{ item.valid_frames }}</td><td>{{ '%.2f'|format(item.q1) }}</td><td>{{ '%.2f'|format(item.median) }}</td><td>{{ '%.2f'|format(item.q3) }}</td><td>{{ item.iqr_outliers }}</td></tr>{% endfor %}</tbody></table></div></main></body></html>

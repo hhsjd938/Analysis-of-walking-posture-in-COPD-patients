@@ -34,14 +34,14 @@
 - **統計圖表：** 匯出逐列特徵、平均與標準差、Q1／Q2／Q3、IQR 離群標記、盒鬚圖與折線圖。
 - **模型訓練：** 以受試者分組切分資料，訓練 MLP 與 Random Forest，保存模型及評估指標。
 - **特徵解釋：** 使用 SHAP 分析 Random Forest 的特徵貢獻。
-- **本機網頁展示：** 在本機執行 Flask，透過瀏覽器上傳 CSV 查看特徵摘要；載入訓練權重後顯示分類結果。專題當時以本機環境展示。
+- **網頁介面：** 上傳 CSV 查看特徵摘要與分析結果；載入訓練權重後可顯示分類結果。
 
 系統從已提取的關鍵點 CSV 開始操作，影片轉幀與 YOLOv7 擷取需事先完成。命令列與網頁共用特徵處理及 MLP 模型定義。
 
 ## 專案結構
 
 ```text
-app.py                    本機 Flask 網頁入口
+app.py                    Flask 網頁入口
 analyze.py                特徵分析與圖表匯出
 train.py                  模型訓練與評估
 explain.py                SHAP 分析
@@ -56,7 +56,7 @@ requirements.txt          執行依賴
 requirements-explain.txt  SHAP 額外依賴
 ```
 
-## 本機安裝與執行
+## 安裝與執行
 
 使用 Python 3.11 或 3.12，在專案根目錄執行：
 
@@ -67,9 +67,7 @@ python analyze.py data/demo/synthetic_pose.csv --output results/demo
 python app.py
 ```
 
-執行 `python app.py` 啟動本機 Flask 服務後，保持程式運行，使用**同一台電腦的瀏覽器**開啟 `http://127.0.0.1:5000`，再選擇 `data/demo/synthetic_pose.csv` 測試分析功能。`127.0.0.1` 指向使用者自己的電腦，須先在該電腦啟動服務才能使用。
-
-此處提供本機操作方式，專題未提供公開線上展示網址。命令列分析產物存於 `results/demo`；本機網頁上傳在記憶體處理，每次最多 10 MB／100000 列。
+執行 `python app.py` 啟動網頁介面，選擇 `data/demo/synthetic_pose.csv` 即可測試分析功能。命令列分析產物存於 `results/demo`。
 
 ![合成資料分析示例](docs/images/synthetic_feature_traces.png)
 
@@ -149,7 +147,7 @@ The analysis highlights mean head–torso angle, shoulder–hip distance standar
 - **Statistics and charts:** export per-row features, mean/std, quartiles, IQR outlier flags, boxplots, and line plots.
 - **Model training:** split by subject, train MLP and Random Forest, and save models and metrics.
 - **Feature explanation:** analyze Random Forest feature contributions using SHAP.
-- **Local web interface:** run Flask locally and use a browser to upload CSVs for feature summaries and predictions with trained weights. The graduation project was demonstrated in a local environment.
+- **Web interface:** upload CSVs to view feature summaries and analysis results, with classification available when trained weights are loaded.
 
 The system starts from extracted keypoint CSVs; video frame extraction and YOLOv7 processing are prerequisites. The command-line tools and web app share feature processing and the MLP definition.
 
@@ -157,7 +155,7 @@ The system starts from extracted keypoint CSVs; video frame extraction and YOLOv
 
 | Path | Purpose |
 | --- | --- |
-| `app.py` | Local Flask web entry point |
+| `app.py` | Flask web entry point |
 | `analyze.py` | Feature analysis and chart export |
 | `train.py` | Model training and evaluation |
 | `explain.py` | SHAP analysis |
@@ -168,7 +166,7 @@ The system starts from extracted keypoint CSVs; video frame extraction and YOLOv
 | `tests/`, `docs/` | Tests, data specification, verification and example figure |
 | `requirements.txt`, `requirements-explain.txt` | Runtime and optional SHAP dependencies |
 
-### Local setup and execution
+### Setup and execution
 
 Use Python 3.11 or 3.12 and run from the repository root:
 
@@ -179,9 +177,7 @@ python analyze.py data/demo/synthetic_pose.csv --output results/demo
 python app.py
 ```
 
-After running `python app.py` to start the local Flask server, keep it running and open `http://127.0.0.1:5000` in a browser **on the same computer**. Select `data/demo/synthetic_pose.csv` to test the analysis. `127.0.0.1` refers to the user's own computer and requires the server to be running there.
-
-These instructions describe local operation; the project does not provide a public online demo URL. Command-line analysis outputs are written to `results/demo`. Local web uploads are processed in memory, with limits of 10 MB and 100000 rows.
+Run `python app.py` to launch the web interface and select `data/demo/synthetic_pose.csv` to test the analysis. Command-line analysis outputs are written to `results/demo`.
 
 ![Synthetic analysis example](docs/images/synthetic_feature_traces.png)
 

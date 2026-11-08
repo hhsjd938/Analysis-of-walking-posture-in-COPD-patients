@@ -1,5 +1,9 @@
 # 資料格式與特徵定義 / Data format and feature definitions
 
+本文定義目前 CSV 分析程式的輸入與計算方式。報告中的 YOLOv7、特徵名稱及當時公式請對照[研究資料對照](report_alignment.md)；這些定義不代表逐項重現當年的實驗。
+
+This document specifies the current CSV analysis code. See the [research comparison](report_alignment.md) for YOLOv7 and the feature names/formulas in the report; these definitions do not establish an exact reproduction of that experiment.
+
 ## 輸入 / Input
 
 單一 CSV = 單一錄製片段、單一追蹤對象。若有 `id` 欄，僅允許一個值；沒有 `id` 時，呼叫端負責先分離對象。列順序由輸入保留，不排序、不當成時間戳。不同拍攝方向與座標尺度不可直接混用而不記錄條件。

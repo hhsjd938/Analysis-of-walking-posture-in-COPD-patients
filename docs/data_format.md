@@ -1,9 +1,5 @@
 # 資料格式與特徵定義 / Data format and feature definitions
 
-本文定義目前 CSV 分析程式的輸入與計算方式。報告中的 YOLOv7、特徵名稱及當時公式請對照[研究資料對照](report_alignment.md)；這些定義不代表逐項重現當年的實驗。
-
-This document specifies the current CSV analysis code. See the [research comparison](report_alignment.md) for YOLOv7 and the feature names/formulas in the report; these definitions do not establish an exact reproduction of that experiment.
-
 ## 輸入 / Input
 
 單一 CSV = 單一錄製片段、單一追蹤對象。若有 `id` 欄，僅允許一個值；沒有 `id` 時，呼叫端負責先分離對象。列順序由輸入保留，不排序、不當成時間戳。不同拍攝方向與座標尺度不可直接混用而不記錄條件。
@@ -16,9 +12,9 @@ Supported formats are a comma-separated or JSON-array `kpts` field, or all 51 ex
 
 ## COCO 17 點配置 / Keypoint layout
 
-以下採用 [Ultralytics 官方姿態文件中的 COCO 17 點順序](https://docs.ultralytics.com/tasks/pose/)。這是整合程式的明確輸入契約，不代表已確認所有來源影片的姿態模型。來源中 kpt_46／49 作為兩踝 x 的用法與此配置相符，其他來源部分角度索引不一致，因此不可直接沿用來源角度數值比較。
+以下採用 [Ultralytics 官方姿態文件中的 COCO 17 點順序](https://docs.ultralytics.com/tasks/pose/)。輸入資料需先確認符合這個順序，其他關鍵點配置需轉換後使用。
 
-The integrated program uses the [COCO 17-point ordering documented by Ultralytics](https://docs.ultralytics.com/tasks/pose/). This is an explicit input contract, not confirmation of the pose model used for every source video. The source use of kpt_46/49 as ankle x coordinates is consistent with it, while some source angle indexing is not. Do not directly compare the resulting angles with those exploratory outputs.
+The integrated program uses the [COCO 17-point ordering documented by Ultralytics](https://docs.ultralytics.com/tasks/pose/). Verify that input data follows this ordering; convert other keypoint layouts before use.
 
 | 零起算 index | 點 / Point | x, y, confidence 欄位 |
 | --- | --- | --- |
